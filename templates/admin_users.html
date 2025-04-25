@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Administrar Usuarios{% endblock %}
+
+{% block content %}
+<h2>Administrar Usuarios</h2>
+
+<!-- Crear usuario -->
+<div class="card mb-4">
+    <div class="card-header">Crear Nuevo Usuario</div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="username" class="form-label">Usuario</label>
+                <input type="text" class="form-control" id="username" name="username" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Contraseña</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="is_admin" name="is_admin">
+                <label class="form-check-label" for="is_admin">Es Administrador</label>
+            </div>
+            <input type="hidden" name="create_user" value="1">
+            <button type="submit" class="btn btn-primary">Crear Usuario</button>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de usuarios -->
+<div class="card">
+    <div class="card-header">Usuarios Existentes</div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Administrador</th>
+                    <th>Permisos</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>{{ 'Sí' if user.is_admin else 'No' }}</td>
+                        <td>
+                            <form method="POST">
+                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                <input type="hidden" name="update_permissions" value="1">
+                                {% for app in apps %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="apps" value="{{ app.id }}"
+                                               {% if app.id in user.permissions %}checked{% endif %}>
+                                        <label class="form-check-label">{{ app.name }}</label>
+                                    </div>
+                                {% endfor %}
+                                <button type="submit" class="btn btn-sm btn-primary mt-2">Actualizar Permisos</button>
+                            </form>
+                        </td>
+                        <td>
+                            <!-- Agregar botón de eliminar si es necesario -->
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

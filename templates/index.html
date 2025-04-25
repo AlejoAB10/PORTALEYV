@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Editor de Base de Datos{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 editor-wrapper">
+    <h2>Editor de la base de datos - Estrada Velasquez</h2>
+    <div class="editor-container">
+        <div class="main-content">
+            <!-- Formulario de conexión -->
+            <div class="section">
+                <h3>Conectarse a la base de datos</h3>
+                <form method="POST" class="connection-form">
+                    <label>Servidor: <input type="text" name="server" value="192.168.1.40"></label>
+                    <label>Instancia: <input type="text" name="instance" value="WIMPOS"></label>
+                    <label>Base de datos: <input type="text" name="database" value="Pruebas"></label>
+                    <label>Usuario: <input type="text" name="username" value="sa"></label>
+                    <label>Contraseña: <input type="password" name="password" value="CIEV2011ev"></label>
+                    <input type="hidden" name="action" value="connect">
+                    <button type="submit">Conectar</button>
+                </form>
+            </div>
+            <!-- Selección de tabla -->
+            {% if tables %}
+            <div class="section">
+                <h3>Cargar datos</h3>
+                <form method="POST" class="table-select-form">
+                    <label>Seleccionar tabla:
+                        <select name="table">
+                            {% for table in tables %}
+                            <option value="{{ table }}" {% if table == session.current_table %}selected{% endif %}>{{ table }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <input type="hidden" name="action" value="load_data">
+                    <button type="submit">Cargar datos</button>
+                </form>
+            </div>
+            {% endif %}
+            <!-- Tabla de datos -->
+            {% if column_names %}
+            <div class="section table-section">
+                <h3>Datos cargados: {{ session.current_table }}</h3>
+                <div class="filter-section">
+                    <p>{{ filter_info }}</p>
+                    {% if filter_info != "No hay filtro activo" %}
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="clear_filter">
+                        <button type="submit" class="clear-filter-btn">Quitar filtro</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="export_csv">
+                        <button type="submit" class="export-btn">Exportar a CSV</button>
+                    </form>
+                </div>
+                <!-- Seleccionar todo checkbox -->
+                <div class="select-all-container">
+                    <label class="select-all-label">
+                        <input type="checkbox" id="select-all-checkbox"> Seleccionar todo
+                    </label>
+                </div>
+                <!-- Formulario para datos de la tabla -->
+                <form method="POST" id="changes_form">
+                    <div class="table-container-wrapper">
+                        <div class="table-container">
+                            <table id="data-table">
+                                <thead>
+                                    <tr>
+                                        <th></th> <!-- Empty header for checkbox column -->
+                                        {% for col in column_names %}
+                                        <th>{{ col }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if clients %}
+                                    {% for client in clients %}
+                                    <tr>
+                                        <td><input type="checkbox" name="selected_ids" value="{{ client[column_indices[primary_key]] }}" class="row-checkbox" {% if client[column_indices[primary_key]]|string in selected_ids %}checked{% endif %}></td>
+                                        {% for value in client %}
+                                        <td>{{ value if value is not none else '' }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="{{ column_names|length + 1 }}">
+                                            <p class="no-data">No se encontraron datos en la tabla '{{ session['current_table'] }}'. Verifica que la tabla tenga registros o que las credenciales tengan los permisos necesarios.</p>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Botones de acción -->
+                    <div class="action-buttons">
+                        <button type="submit" name="action" value="preview_changes">Vista previa de cambios</button>
+                        <button type="submit" name="action" value="apply_changes">Aplicar cambios</button>
+                    </div>
+                </form>
+                <!-- Paginación -->
+                <div class="pagination">
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="prev_page">
+                        <button type="submit" {% if current_page == 1 %}disabled{% endif %}>Anterior</button>
+                    </form>
+                    <span>Página {{ current_page }} de {{ total_pages }}</span>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="next_page">
+                        <button type="submit" {% if current_page == total_pages %}disabled{% endif %}>Siguiente</button>
+                    </form>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="update_page_size">
+                        <label>Registros por página: <input type="number" name="page_size" value="{{ page_size }}" min="10" max="1000"></label>
+                        <button type="submit">Actualizar</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            <!-- Formulario filtrado -->
+            {% if column_names %}
+            <div class="section">
+                <h3>Filtrar datos</h3>
+                <form method="POST" class="filter-form">
+                    <label>Comando: <input type="text" name="command" placeholder="Ej: filtrar la columna Nombre donde contiene Juan" value="{{ session.last_command or '' }}"></label>
+                    <input type="hidden" name="action" value="filter">
+                    <button type="submit">Filtrar</button>
+                </form>
+                {% if command_history %}
+                <h3>Historial de comandos</h3>
+                <ul>
+                    {% for cmd in command_history %}
+                    <li>{{ cmd }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endif %}
+            <!-- Formulario de reglas -->
+            {% if column_names %}
+            <div class="section">
+                <h3>Añadir regla</h3>
+                <form method="POST" class="rule-form">
+                    <label>Columna: 
+                        <select name="column">
+                            {% for col in column_names %}
+                            <option value="{{ col }}">{{ col }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>Patrón: <input type="text" name="pattern" placeholder="Ej: [0-9]+"></label>
+                    <label>Reemplazo: <input type="text" name="replacement" placeholder="Ej: Número"></label>
+                    <input type="hidden" name="action" value="add_rule">
+                    <button type="submit">Añadir regla</button>
+                </form>
+                {% if rules %}
+                <h3>Reglas actuales</h3>
+                <ul>
+                    {% for rule in rules %}
+                    <li>{{ rule.column }}: {{ rule.pattern }} → {{ rule.replacement }}</li>
+                    {% endfor %}
+                </ul>
+                <form method="POST" style="margin-top: 20px;">
+                    <input type="hidden" name="action" value="clear_rules">
+                    <button type="submit" class="clear-rules-btn">Limpiar reglas</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <!-- Panel lateral para mostrar cambios -->
+        <div class="sidebar">
+            <h3>Panel de Cambios</h3>
+            {% if preview_results %}
+            <div class="results">
+                {% for line in preview_results %}
+                {{ line }}<br>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p>No hay cambios para mostrar. Selecciona registros y haz clic en "Vista Previa de Cambios" o "Aplicar Cambios".</p>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Notificaciones -->
+    {% if notification %}
+    <div class="notification {{ notification.type }}" id="notification">
+        {{ notification.message }}
+    </div>
+    {% endif %}
+</div>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+<script src="{{ url_for('static', filename='scripts.js') }}"></script>
+{% endblock %}
